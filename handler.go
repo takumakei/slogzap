@@ -33,6 +33,11 @@ var _ slog.Handler = (*Handler)(nil)
 //
 // While zap panics at a certain level (e.g. PanicLevel), slog has no such
 // assumption. You can prevent panics by limiting the severe log level.
+//
+// The handler changes the level from a higher level to the limiting level.
+// The level is changed but the output of higher level records is not suppressed.
+//
+// See [WithLimit].
 func New(logger *zap.Logger, options ...Option) slog.Handler {
 	h := &Handler{
 		zap:   logger,
@@ -43,6 +48,38 @@ func New(logger *zap.Logger, options ...Option) slog.Handler {
 		o.apply(h)
 	}
 	return h
+}
+
+// GetLogger returns the zap.Logger from the log of slog.Logger if it is
+// associated to, or nil if it doesn't exist.
+func GetLogger(log *slog.Logger) *zap.Logger {
+	if log == nil {
+		return nil
+	}
+	h, ok := log.Handler().(interface{ Logger() *zap.Logger })
+	if !ok {
+		return nil
+	}
+	return h.Logger()
+}
+
+// Logger returns a zap.Logger to which the handler forwards logs.
+func (h *Handler) Logger() *zap.Logger {
+	return h.zap
+}
+
+// Level returns the minimum record level that will be logged.
+// The handler discards records with lower levels.
+// This value is based on the [zap.Logger.Level].
+func (h *Handler) Level() slog.Level {
+	return h.lvl
+}
+
+// Limit returns the maximum level that will be logged.
+// The handler changes the level from a higher level to the limiting level.
+// The level is changed but the output of higher level records is not suppressed.
+func (h *Handler) Limit() slog.Level {
+	return h.limit
 }
 
 // Enabled implements [slog.Handler.Enabled].
@@ -109,10 +146,12 @@ type Option interface {
 }
 
 // WithLimit returns an Option that sets the maximum conversion level for the [Handler].
+// The handler changes the level from a higher level to the limiting level.
+// The level is changed but the output of higher level records is not suppressed.
 //
 // See [New].
-func WithLimit(zlvl zapcore.Level) Option {
-	return withLimit(zlvl)
+func WithLimit(limit zapcore.Level) Option {
+	return withLimit(limit)
 }
 
 type withLimit zapcore.Level

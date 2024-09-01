@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"math"
 	"testing"
 
 	"github.com/takumakei/slogzap"
@@ -83,4 +84,34 @@ func TestHandler(t *testing.T) {
 	if want != got {
 		t.Errorf("\nwant: %s\n got: %s", want, got)
 	}
+}
+
+func TestGetLogger(t *testing.T) {
+	want := zap.NewExample()
+	got := slogzap.GetLogger(slog.New(slogzap.New(want)))
+	if got != want {
+		t.Error("should be equal")
+	}
+}
+
+func TestHandlerLevel(t *testing.T) {
+	h := slogzap.New(zap.NewExample()).(*slogzap.Handler)
+	if h.Level() != slog.LevelDebug {
+		t.Error("should be DEBUG, got ", h.Level())
+	}
+}
+
+func TestHandlerLimit(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		h := slogzap.New(zap.NewExample()).(*slogzap.Handler)
+		if h.Limit() != slog.Level(math.MaxInt) {
+			t.Error("should be maximum, got ", h.Limit())
+		}
+	})
+	t.Run("error", func(t *testing.T) {
+		h := slogzap.New(zap.NewExample(), slogzap.WithLimit(zapcore.ErrorLevel)).(*slogzap.Handler)
+		if h.Limit() != slog.LevelError {
+			t.Error("should be ERROR, got ", h.Limit())
+		}
+	})
 }
